@@ -28,7 +28,7 @@ proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
     upstream {{$service}} {
       {{range ls $endpoints}}
         {{$key := printf "/services/http/%s/endpoints/%s" $service .}}
-        server {{$getv $key}};
+        server {{getv $key}};
       {{end}}
     }
   {{else}}

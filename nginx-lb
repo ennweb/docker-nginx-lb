@@ -1,24 +1,21 @@
 #!/bin/bash
 
 set -e
+echo "[nginx-lb] booting container."
 
+HOST_IP="${HOST_IP:-172.17.42.1}"
 ETCD_PREFIX="${ETCD_PREFIX:-/}"
 ETCD_PORT="${ETCD_PORT:-2379}"
-HOST_IP="${HOST_IP:-172.17.42.1}"
-ETCD="$HOST_IP:$ETCD_PORT"
+ETCD_SCHEME="${ETCD_SCHEME:-$(test -z $ETCD_CERT && echo http || echo https)}"
+ETCD="$ETCD_SCHEME://$HOST_IP:$ETCD_PORT"
 NGINX_WORKER_PROCESSES="${NGINX_WORKER_PROCESSES:-$((`nproc`*2))}"
 
+# Update worker processes
 sed -i "s/@@worker_processes@@/$NGINX_WORKER_PROCESSES/g" /etc/nginx/nginx.conf
-
-echo "[nginx-lb] booting container."
-until confd -onetime=true -node=[$ETCD] -client-ca-keys=$ETCD_CA -client-cert=$ETCD_CERT -client-key=$ETCD_KEY -prefix=$ETCD_PREFIX -confdir=/etc/confd; do
-    echo "[nginx-lb] waiting for confd to create initial nginx configuration."
-    sleep 5
-done
 
 # Put a continual polling `confd` process into the background to watch
 # for changes every 10 seconds
-confd -interval=10 -node=[$ETCD] -client-ca-keys=$ETCD_CA -client-cert=$ETCD_CERT -client-key=$ETCD_KEY -prefix=$ETCD_PREFIX -confdir=/etc/confd &
+confd -interval=10 -node=$ETCD -client-ca-keys=$ETCD_CA -client-cert=$ETCD_CERT -client-key=$ETCD_KEY -prefix=$ETCD_PREFIX &
 echo "[nginx-lb] confd is now monitoring etcd for changes..."
 
 # Start the Nginx service using the generated config

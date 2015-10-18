@@ -5,7 +5,6 @@ RUN \
   apt-get install -y wget gcc make patch libpcre3-dev libssl-dev zlib1g-dev libgeoip-dev apache2-utils && \
   wget https://github.com/kelseyhightower/confd/releases/download/v0.10.0/confd-0.10.0-linux-amd64 -O /usr/bin/confd && \
   chmod +x /usr/bin/confd && \
-  mkdir -p /etc/confd/templates && \
   wget http://nginx.org/download/nginx-1.9.5.tar.gz && \
   tar -xzf nginx-1.9.5.tar.gz && \
   cd nginx-1.9.5 && \
