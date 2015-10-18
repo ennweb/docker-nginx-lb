@@ -1,0 +1,26 @@
+#!/bin/bash
+{{range $dir := lsdir "/services/http"}}
+  {{$service := base $dir}}
+  {{$ssl := printf "/services/http/%s/ssl/crt" $service}}
+  {{$key := printf "/services/http/%s/ssl/key" $service}}
+  {{$auth := printf "/services/http/%s/auth" $service}}
+  {{$users := printf "/services/http/%s/auth-users" $service}}
+
+  # {{$service}}
+  {{if exists $ssl}}
+    echo "{{getv $ssl}}" > /etc/nginx/keys/{{$service}}.crt
+    echo "{{getv $key}}" > /etc/nginx/keys/{{$service}}.key
+  {{end}}
+  {{if exists $auth}}
+    {{$htpassword := printf "/etc/nginx/keys/%s.htpasswd" $service}}
+    rm -f {{$htpassword}}
+    touch {{$htpassword}}
+    {{range $user := ls $users}}
+      {{$key := printf "/services/http/%s/auth-users/%s" $service $user}}
+      {{$password := getv $key}}
+      # {{$user}}
+      htpasswd -b {{$htpassword}} {{$user}} "{{$password}}"
+    {{end}}
+  {{end}}
+  
+{{end}}
