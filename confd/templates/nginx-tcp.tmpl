@@ -2,6 +2,7 @@
   {{$service := base $dir}}
   {{$port := printf "/services/tcp/%s/port" $service}}
   {{$config := printf "/services/tcp/%s/config/" $service}}
+  {{$upconfig := printf "/services/tcp/%s/upconfig/" $service}}
   {{$endpoints := printf "/services/tcp/%s/endpoints/" $service}}
 
   {{if ne (len (ls $endpoints)) 0}}
@@ -9,6 +10,12 @@
       {{range ls $endpoints}}
         {{$key := printf "/services/tcp/%s/endpoints/%s" $service .}}
         server {{getv $key}};
+      {{end}}
+      {{if ne (len (ls $upconfig)) 0}}
+        {{range ls $upconfig}}
+          {{$key := printf "/services/tcp/%s/upconfig/%s" $service .}}
+          {{getv $key}}
+        {{end}}
       {{end}}
     }
     server {

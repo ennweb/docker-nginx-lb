@@ -50,6 +50,7 @@ server {
   {{$auth := printf "/services/http/%s/auth" $service}}
   {{$ssl := printf "/services/http/%s/ssl/crt" $service}}
   {{$config := printf "/services/http/%s/config/" $service}}
+  {{$upconfig := printf "/services/http/%s/upconfig/" $service}}
   {{$endpoints := printf "/services/http/%s/endpoints/" $service}}
 
   {{if ne (len (ls $endpoints)) 0}}
@@ -57,6 +58,12 @@ server {
       {{range ls $endpoints}}
         {{$key := printf "/services/http/%s/endpoints/%s" $service .}}
         server {{getv $key}};
+      {{end}}
+      {{if ne (len (ls $upconfig)) 0}}
+        {{range ls $upconfig}}
+          {{$key := printf "/services/http/%s/upconfig/%s" $service .}}
+          {{getv $key}}
+        {{end}}
       {{end}}
     }
   {{else}}
