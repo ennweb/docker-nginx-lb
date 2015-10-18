@@ -1,0 +1,26 @@
+{{range $dir := lsdir "/services/tcp"}}
+  {{$service := base $dir}}
+  {{$port := printf "/services/tcp/%s/port" $service}}
+  {{$config := printf "/services/tcp/%s/config/" $service}}
+  {{$endpoints := printf "/services/tcp/%s/endpoints/" $service}}
+
+  {{if ne (len (ls $endpoints)) 0}}
+    upstream {{$service}} {
+      {{range ls $endpoints}}
+        {{$key := printf "/services/tcp/%s/endpoints/%s" $service .}}
+        server {{getv $key}};
+      {{end}}
+    }
+    server {
+      listen {{getv $port}};
+      proxy_pass {{$service}};
+      {{if ne (len (ls $config)) 0}}
+        {{range ls $config}}
+          {{$key := printf "/services/tcp/%s/config/%s" $service .}}
+          {{getv $key}}
+        {{end}}
+      {{end}}
+    }
+  {{end}}
+
+{{end}}
