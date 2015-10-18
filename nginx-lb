@@ -2,15 +2,15 @@
 
 set -e
 
-$ETCD_PREFIX=${ETCD_PREFIX:-/}
-$ETCD_PORT=${ETCD_PORT:-2379}
-$HOST_IP=${HOST_IP:-172.17.42.1}
-$ETCD=$HOST_IP:$ETCD_PORT
-$NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES:-$((`nproc`*2))}
+ETCD_PREFIX="${ETCD_PREFIX:-/}"
+ETCD_PORT="${ETCD_PORT:-2379}"
+HOST_IP="${HOST_IP:-172.17.42.1}"
+ETCD="$HOST_IP:$ETCD_PORT"
+NGINX_WORKER_PROCESSES="${NGINX_WORKER_PROCESSES:-$((`nproc`*2))}"
 
-sed -i "s/\{\{worker_processes\}\}/$NGINX_WORKER_PROCESSES/g" /etc/nginx/nginx.conf
+sed -i "s/@@worker_processes@@/$NGINX_WORKER_PROCESSES/g" /etc/nginx/nginx.conf
 
-echo "[nginx-lb] booting container. ETCD: $ETCD."
+echo "[nginx-lb] booting container."
 until confd -onetime=true -node=[$ETCD] -client-ca-keys=$ETCD_CA -client-cert=$ETCD_CERT -client-key=$ETCD_KEY -prefix=$ETCD_PREFIX -confdir=/etc/confd; do
     echo "[nginx-lb] waiting for confd to create initial nginx configuration."
     sleep 5
