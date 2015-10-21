@@ -19,96 +19,62 @@ proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
 log_format default '$host $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"';
 
 server {
-  server_name _;
   listen 80;
+  server_name _;
   access_log /var/log/nginx/access.log default;
   return 503;
 }
 
-{{if (and (exists "/etc/nginx/keys/default.crt") (exists "/etc/nginx/keys/default.key"))}}
+{{if and (exists "/services/http/default/ssl/crt") (exists "/services/http/default/ssl/key")}}
   server {
+    listen 443 ssl;
     server_name _;
-    listen 443 ssl http2;
     access_log /var/log/nginx/access.log default;
     return 503;
-    ssl on;
     ssl_certificate /etc/nginx/keys/default.crt;
     ssl_certificate_key /etc/nginx/keys/default.key;
-    ssl_session_timeout 10m;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-    ssl_session_cache shared:SSL:10m;
-    ssl_ciphers "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4";
-    ssl_prefer_server_ciphers on;
-    ssl_buffer_size 1400;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubdomains;";
   }
 {{end}}
 
 {{range $dir := lsdir "/services/http"}}
   {{$service := base $dir}}
-  {{$host := printf "/services/http/%s/host" $service}}
-  {{$auth := printf "/services/http/%s/auth" $service}}
-  {{$ssl := printf "/services/http/%s/ssl/crt" $service}}
-  {{$config := printf "/services/http/%s/config/" $service}}
-  {{$upconfig := printf "/services/http/%s/upconfig/" $service}}
-  {{$endpoints := printf "/services/http/%s/endpoints/" $service}}
+  {{if ne $service "default"}}
+    {{$host := printf "/services/http/%s/host" $service}}
+    {{$auth := printf "/services/http/%s/auth" $service}}
+    {{$ssl := printf "/services/http/%s/ssl/crt" $service}}
+    {{$key := printf "/services/http/%s/ssl/key" $service}}
+    {{$config := printf "/services/http/%s/config/" $service}}
+    {{$upconfig := printf "/services/http/%s/upconfig/" $service}}
+    {{$subdomain := printf "/services/http/%s/subdomain/" $service}}
+    {{$endpoints := printf "/services/http/%s/endpoints/" $service}}
 
-  {{if ne (len (ls $endpoints)) 0}}
-    upstream {{$service}} {
-      {{range ls $endpoints}}
-        {{$key := printf "/services/http/%s/endpoints/%s" $service .}}
-        server {{getv $key}};
-      {{end}}
-      {{if ne (len (ls $upconfig)) 0}}
-        {{range ls $upconfig}}
-          {{$key := printf "/services/http/%s/upconfig/%s" $service .}}
-          {{getv $key}}
+    {{if ne (len (ls $endpoints)) 0}}
+      upstream {{$service}} {
+        {{range ls $endpoints}}
+          {{$key := printf "/services/http/%s/endpoints/%s" $service .}}
+          {{$upstream := split (getv $key) ":" }}
+          {{if (and (ne (index $upstream 0) "") (ne (index $upstream 1) ""))}}
+            server {{getv $key}};
+          {{end}}
         {{end}}
-      {{end}}
-    }
-  {{else}}
-    upstream {{$service}} {
-      server localhost;
-    }
-  {{end}}
-
-  server {
-    listen 80;
-    server_name {{getv $host}};
-    underscores_in_headers on;
-    client_max_body_size 2g;
-    {{if ne (len (ls $config)) 0}}
-      {{range ls $config}}
-        {{$key := printf "/services/http/%s/config/%s" $service .}}
-        {{getv $key}}
-      {{end}}
+        {{if ne (len (ls $upconfig)) 0}}
+          {{range ls $upconfig}}
+            {{$key := printf "/services/http/%s/upconfig/%s" $service .}}
+            {{getv $key}}
+          {{end}}
+        {{end}}
+      }
+    {{else}}
+      upstream {{$service}} {
+        server localhost;
+      }
     {{end}}
-    location / {
-      proxy_pass http://{{$service}};
-      {{if exists $auth}}
-        {{$htpassword := printf "/etc/nginx/keys/%s.htpasswd" $service}}
-        auth_basic "Authorization Required";
-        auth_basic_user_file {{$htpassword}};
-      {{end}}
-    }
-  }
 
-  {{if exists $ssl}}
     server {
-      listen 443 ssl http2;
-      server_name {{getv $host}};
+      listen 80{{if exists "/services/http/default/service"}}{{if eq (getv "/services/http/default/service") $service}} default_server{{end}}{{end}};
+      server_name {{if exists $host}}{{getv $host}}{{end}}{{if exists "/services/http/default/domain"}}{{$service_domain := getv "/services/http/default/domain"}}{{if exists $subdomain}}{{$subdomain_host := printf "www.%s.%s %s.%s" (getv $subdomain) $service_domain (getv $subdomain) $service_domain}} {{$subdomain_host}}{{else}}{{$subdomain_host := printf "www.%s.%s %s.%s" $service $service_domain $service $service_domain}} {{$subdomain_host}}{{end}}{{end}};
       underscores_in_headers on;
       client_max_body_size 2g;
-      ssl on;
-      ssl_certificate /etc/nginx/keys/{{$service}}.crt;
-      ssl_certificate_key /etc/nginx/keys/{{$service}}.key;
-      ssl_session_timeout 10m;
-      ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-      ssl_session_cache shared:SSL:10m;
-      ssl_ciphers "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4";
-      ssl_prefer_server_ciphers on;
-      ssl_buffer_size 1400;
-      add_header Strict-Transport-Security "max-age=31536000; includeSubdomains;";
       {{if ne (len (ls $config)) 0}}
         {{range ls $config}}
           {{$key := printf "/services/http/%s/config/%s" $service .}}
@@ -124,6 +90,38 @@ server {
         {{end}}
       }
     }
-  {{end}}
 
+    {{if and (exists $ssl) (exists $key)}}
+      server {
+        listen 443 ssl http2{{if exists "/services/http/default/service"}}{{if eq (getv "/services/http/default/service") $service}} default_server{{end}}{{end}};
+        server_name {{if exists $host}}{{getv $host}}{{end}}{{if exists "/services/http/default/domain"}}{{$service_domain := getv "/services/http/default/domain"}}{{if exists $subdomain}}{{$subdomain_host := printf "www.%s.%s %s.%s" (getv $subdomain) $service_domain (getv $subdomain) $service_domain}} {{$subdomain_host}}{{else}}{{$subdomain_host := printf "www.%s.%s %s.%s" $service $service_domain $service $service_domain}} {{$subdomain_host}}{{end}}{{end}};
+        underscores_in_headers on;
+        client_max_body_size 2g;
+        ssl_certificate /etc/nginx/keys/{{$service}}.crt;
+        ssl_certificate_key /etc/nginx/keys/{{$service}}.key;
+        ssl_session_timeout 10m;
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        ssl_session_cache shared:SSL:10m;
+        ssl_ciphers "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4";
+        ssl_prefer_server_ciphers on;
+        ssl_buffer_size 1400;
+        add_header Strict-Transport-Security "max-age=31536000;";
+        {{if ne (len (ls $config)) 0}}
+          {{range ls $config}}
+            {{$key := printf "/services/http/%s/config/%s" $service .}}
+            {{getv $key}}
+          {{end}}
+        {{end}}
+        location / {
+          proxy_pass http://{{$service}};
+          {{if exists $auth}}
+            {{$htpassword := printf "/etc/nginx/keys/%s.htpasswd" $service}}
+            auth_basic "Authorization Required";
+            auth_basic_user_file {{$htpassword}};
+          {{end}}
+        }
+      }
+    {{end}}
+
+  {{end}}
 {{end}}

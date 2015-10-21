@@ -39,7 +39,7 @@ RUN \
     --without-http_fastcgi_module && \
   make && make install && cd / && rm -rf /nginx* && \
   apt-get remove -y wget gcc make patch libpcre3-dev libssl-dev zlib1g-dev libpcrecpp0 libssl-doc && \
-  apt-get clean && apt-get autoclean && \
+  apt-get autoremove -y && apt-get clean && apt-get autoclean && \
   rm -rf /var/lib/apt/lists/* && \
   ln -sf /dev/stdout /var/log/nginx/access.log && \
   ln -sf /dev/stderr /var/log/nginx/error.log && \
