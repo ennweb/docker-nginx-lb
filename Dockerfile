@@ -1,4 +1,4 @@
-FROM ubuntu:14.04.2
+FROM ubuntu:14.04.3
 
 RUN \
   apt-get update && \
@@ -11,27 +11,33 @@ RUN \
   wget https://github.com/yaoweibin/nginx_upstream_check_module/archive/master.tar.gz -O patch.tgz && \
   tar -xzf patch.tgz && \
   patch -p0 < nginx_upstream_check_module-master/check_1.9.2+.patch && \
-  ./configure --add-module=nginx_upstream_check_module-master --prefix=/etc/nginx \
+  ./configure \
+    --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
+    --with-ld-opt='-Wl,-Bsymbolic-functions -Wl,-z,relro' \
+    --add-module=nginx_upstream_check_module-master \
+    --prefix=/usr/share/nginx \
     --sbin-path=/usr/sbin/nginx \
     --conf-path=/etc/nginx/nginx.conf \
-    --pid-path=/var/run/nginx.pid \
-    --lock-path=/var/run/nginx.lock \
-    --error-log-path=/var/log/nginx/error.log \
     --http-log-path=/var/log/nginx/access.log \
-    --http-proxy-temp-path=/tmp/.proxy_temp \
-    --http-client-body-temp-path=/tmp/.client_body_temp \
-    --with-http_gzip_static_module \
-    --with-http_stub_status_module \
+    --error-log-path=/var/log/nginx/error.log \
+    --lock-path=/var/run/nginx.lock \
+    --pid-path=/run/nginx.pid \
+    --http-client-body-temp-path=/var/lib/nginx/body \
+    --http-proxy-temp-path=/var/lib/nginx/proxy \
+    --with-pcre-jit \
+    --with-ipv6 \
     --with-http_ssl_module \
-    --with-http_v2_module \
-    --with-pcre \
-    --with-file-aio \
+    --with-http_stub_status_module \
     --with-http_realip_module \
-    --with-http_realip_module \
+    --with-http_addition_module \
     --with-http_geoip_module \
-    --with-http_auth_request_module \
+    --with-http_gzip_static_module \
+    --with-http_sub_module \
     --with-mail \
     --with-mail_ssl_module \
+    --with-http_v2_module \
+    --with-file-aio \
+    --with-http_auth_request_module \
     --with-stream \
     --with-stream_ssl_module \
     --without-http_scgi_module \
