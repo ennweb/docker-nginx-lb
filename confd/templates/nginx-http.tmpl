@@ -45,7 +45,7 @@ server {
     {{$key := printf "/services/http/%s/ssl/key" $service}}
     {{$config := printf "/services/http/%s/config/" $service}}
     {{$upconfig := printf "/services/http/%s/upconfig/" $service}}
-    {{$subdomain := printf "/services/http/%s/subdomain/" $service}}
+    {{$subdomain := printf "/services/http/%s/subdomain" $service}}
     {{$endpoints := printf "/services/http/%s/endpoints/" $service}}
 
     {{if ne (len (ls $endpoints)) 0}}
