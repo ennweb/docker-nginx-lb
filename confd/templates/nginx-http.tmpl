@@ -43,6 +43,7 @@ server {
     {{$auth := printf "/services/http/%s/auth" $service}}
     {{$ssl := printf "/services/http/%s/ssl/crt" $service}}
     {{$key := printf "/services/http/%s/ssl/key" $service}}
+    {{$force := printf "/services/http/%s/ssl/force" $service}}
     {{$config := printf "/services/http/%s/config/" $service}}
     {{$upconfig := printf "/services/http/%s/upconfig/" $service}}
     {{$subdomain := printf "/services/http/%s/subdomain" $service}}
@@ -113,6 +114,11 @@ server {
           {{end}}
         {{end}}
         location / {
+          {{if exists $force}}
+            proxy_pass https://{{$service}};
+          {{else}}
+            proxy_pass http://{{$service}};
+          {{end}}
           proxy_pass http://{{$service}};
           {{if exists $auth}}
             {{$htpassword := printf "/etc/nginx/keys/%s.htpasswd" $service}}
