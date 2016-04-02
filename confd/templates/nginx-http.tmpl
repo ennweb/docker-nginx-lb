@@ -119,7 +119,6 @@ server {
           {{else}}
             proxy_pass http://{{$service}};
           {{end}}
-          proxy_pass http://{{$service}};
           {{if exists $auth}}
             {{$htpassword := printf "/etc/nginx/keys/%s.htpasswd" $service}}
             auth_basic "Authorization Required";
